@@ -10,6 +10,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torchvision import transforms
+from pathlib import Path
+import pandas as pd
 
 class Dataset(torch.utils.data.IterableDataset):
     def __init__(self, path, shuffle_pairs=True, augment=False):
@@ -58,12 +60,25 @@ class Dataset(torch.utils.data.IterableDataset):
         Creates two lists of indices that will form the pairs, to be fed for training or evaluation.
         '''
 
-        self.image_paths = glob.glob(os.path.join(self.path, "*/*.png"))
+        with open(self.path, 'r') as f:
+            split_files = f.read().split("\n")
+            split_files = [Path(x).name for x in split_files]
+            
+        self.image_paths = []
+        image_paths = glob.glob(os.path.join(Path(self.path).parent / "images", "*.jpeg"))
+        
+        for image_path in image_paths:
+            if Path(image_path).name in split_files:
+                self.image_paths.append(image_path)
+
+        annotations_df = pd.read_csv(Path(self.path).parent / "phase2_train_v0.csv")
+        annotations_df.set_index("img_fName", inplace=True)
+        
         self.image_classes = []
         self.class_indices = {}
 
         for image_path in self.image_paths:
-            image_class = image_path.split(os.path.sep)[-2]
+            image_class = annotations_df.loc[Path(image_path).name]["class_label"]
             self.image_classes.append(image_class)
 
             if image_class not in self.class_indices:
